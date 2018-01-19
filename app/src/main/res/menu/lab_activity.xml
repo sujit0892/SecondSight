@@ -6,6 +6,7 @@
     android:id="@+id/delete"
     app:showAsAction="ifRoom|withText"
     android:title="@string/delete"
+
     />
     <item
         android:id="@+id/share"

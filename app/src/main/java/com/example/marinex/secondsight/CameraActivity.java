@@ -7,6 +7,7 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Camera;
 import android.net.Uri;
+import android.nfc.Tag;
 import android.os.Build;
 import android.os.Environment;
 import android.provider.MediaStore;
@@ -100,8 +101,17 @@ public class CameraActivity extends AppCompatActivity implements CameraBridgeVie
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        while(ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED)
-            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CAMERA}, 50);
+        while(ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CAMERA,Manifest.permission.READ_EXTERNAL_STORAGE,Manifest.permission.WRITE_EXTERNAL_STORAGE}, 50);
+            //ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.READ_EXTERNAL_STORAGE}, 50);
+        }
+
+        /*while(ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED)
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, 50);
+
+        while(ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED)
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.READ_EXTERNAL_STORAGE}, 50);*/
+
 
         final Window window = getWindow();
         window.addFlags(
@@ -140,6 +150,7 @@ public class CameraActivity extends AppCompatActivity implements CameraBridgeVie
         final android.hardware.Camera.Size size = mSupportedImageSizes.get(mImageSizeIndex);
        //mCameraView = findViewById(R.id.showCamera);
         mCameraView = new JavaCameraView(this, mCameraIndex);
+
         mCameraView.setMaxFrameSize(size.width, size.height);
         mCameraView.setCvCameraViewListener(this);
         setContentView(mCameraView);
@@ -175,7 +186,7 @@ public class CameraActivity extends AppCompatActivity implements CameraBridgeVie
         if(mIsPhotoPending)
         {
             mIsPhotoPending = false;
-           //takePhoto(rgba);
+           takePhoto(rgba);
         }
         if(mIsCameraFrontFacing)
             Core.flip(rgba,rgba,1);
@@ -285,8 +296,76 @@ public class CameraActivity extends AppCompatActivity implements CameraBridgeVie
         }
     }
 
+    private void takePhoto(final Mat rgba)
+    {   mCameraView.disableView();
+        final  long currentTimeMillis = System.currentTimeMillis();
+        final String appName = getString(R.string.app_name);
+        final String gallaryPath = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES).toString();
+        final String albumPath = gallaryPath+File.separator+appName;
+        final String photoPath = albumPath+File.separator+currentTimeMillis+LabActivity.PHOTO_FILE_EXTENSION;
+        final ContentValues values = new ContentValues();
+        values.put(MediaStore.MediaColumns.DATA, photoPath);
+        values.put(MediaStore.Images.Media.TITLE, appName);
+        values.put(MediaStore.Images.Media.DESCRIPTION, appName);
+        values.put(MediaStore.Images.Media.DATE_TAKEN, currentTimeMillis);
+
+        File album = new File(albumPath);
+        if(!album.isDirectory() && !album.mkdir())
+        {
+            Log.e(TAG, "FAiled to create directory at"+albumPath);
+            onTakePhotoFailed();
+            return;
+        }
+
+        Imgproc.cvtColor(rgba,mBgr, Imgproc.COLOR_RGBA2BGR);
+        if(!Imgcodecs.imwrite(photoPath,mBgr))
+        {
+            Log.e(TAG, "Failed to Save photo to"+photoPath);
+            onTakePhotoFailed();
+        }
 
 
+        Log.d(TAG,"Photo Saved successfully to"+photoPath);
+
+        Uri uri;
+        try {
+            uri = getContentResolver().insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values);
+
+        }catch (final Exception e)
+        {
+            Log.e(TAG,"Failed to insert photo into Media Store");
+            e.printStackTrace();
+            File photo = new File(photoPath);
+            if(!photo.delete())
+            {
+                Log.e(TAG,"Failed to delete non-inserted photo");
+            }
+
+            onTakePhotoFailed();
+            return;
+
+        }
+
+
+        final Intent intent = new Intent(this, LabActivity.class);
+        intent.putExtra(LabActivity.EXTRA_PHOTO_URI,uri);
+        intent.putExtra(LabActivity.EXTRA_PHOTO_DATA_PATH,photoPath);
+        startActivity(intent);
+
+
+    }
+
+    private void onTakePhotoFailed() {
+        mIsMenuLocked = false;
+        final String errorMessage = getString(R.string.photo_error_message);
+
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                Toast.makeText(CameraActivity.this, errorMessage, Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
 
 
 }
