@@ -2,6 +2,7 @@ package com.example.marinex.secondsight;
 
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.graphics.Bitmap;
 import android.net.Uri;
 import android.provider.MediaStore;
 import android.support.v7.app.AlertDialog;
@@ -10,6 +11,8 @@ import android.os.Bundle;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.widget.ImageView;
+
+import org.opencv.core.Mat;
 
 public class LabActivity extends AppCompatActivity {
 
@@ -21,16 +24,21 @@ public class LabActivity extends AppCompatActivity {
 
     private Uri mUri;
     private String mDataPath;
+    private Mat mBgr;
 
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         final Intent intent = getIntent();
-        mUri = intent.getParcelableExtra(EXTRA_PHOTO_URI);
-        mDataPath = intent.getStringExtra(EXTRA_PHOTO_DATA_PATH);
+       mUri = intent.getParcelableExtra(EXTRA_PHOTO_URI);
+       mDataPath = intent.getStringExtra(EXTRA_PHOTO_DATA_PATH);
+
         final ImageView imageView = new ImageView(this);
+
         imageView.setImageURI(mUri);
+
+
         setContentView(imageView);
     }
 
